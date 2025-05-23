@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACT_ABI } from './contractABI';
 import MetaMaskConnect from './components/MetaMaskConnect';
@@ -20,31 +20,16 @@ function App() {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', () => window.location.reload());
+  const handleAccountsChanged = useCallback((accounts) => {
+    if (accounts.length === 0) {
+      setAccount('');
+    } else {
+      setAccount(accounts[0]);
     }
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-      }
-    };
   }, []);
 
-  useEffect(() => {
-    if (contract) {
-      loadQuestions();
-    }
-  }, [contract, loadQuestions]);
-
-  useEffect(() => {
-    if (contract && selectedQuestion) {
-      loadAnswers();
-    }
-  }, [contract, selectedQuestion, loadAnswers]);
-
-  const loadQuestions = async () => {
+  const loadQuestions = useCallback(async () => {
+    if (!contract) return;
     try {
       const questionCount = await contract.questionCount();
       const loadedQuestions = [];
@@ -58,16 +43,41 @@ function App() {
     } catch (error) {
       console.error('Error loading questions:', error);
     }
-  };
+  }, [contract]);
 
-  const loadAnswers = async () => {
+  const loadAnswers = useCallback(async () => {
+    if (!contract || !selectedQuestion) return;
     try {
       const loadedAnswers = await contract.getAnswers(selectedQuestion);
       setAnswers(loadedAnswers);
     } catch (error) {
       console.error('Error loading answers:', error);
     }
-  };
+  }, [contract, selectedQuestion]);
+
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', () => window.location.reload());
+    }
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, [handleAccountsChanged]);
+
+  useEffect(() => {
+    if (contract) {
+      loadQuestions();
+    }
+  }, [contract, loadQuestions]);
+
+  useEffect(() => {
+    if (contract && selectedQuestion) {
+      loadAnswers();
+    }
+  }, [contract, selectedQuestion, loadAnswers]);
 
   const handleConnect = async (provider) => {
     const signer = await provider.getSigner();
