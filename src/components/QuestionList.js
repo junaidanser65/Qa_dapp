@@ -1,5 +1,4 @@
 import React from 'react';
-import { ethers } from 'ethers';
 
 const QuestionList = ({ questions, onVote, onSelectQuestion }) => {
   const formatTimestamp = (timestamp) => {

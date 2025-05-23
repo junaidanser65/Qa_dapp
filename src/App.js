@@ -11,24 +11,38 @@ import './App.css';
 const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
 
 function App() {
-  const [provider, setProvider] = useState(null);
+  const [account, setAccount] = useState('');
   const [contract, setContract] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [newAnswer, setNewAnswer] = useState('');
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', () => window.location.reload());
+    }
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (contract) {
       loadQuestions();
     }
-  }, [contract]);
+  }, [contract, loadQuestions]);
 
   useEffect(() => {
     if (contract && selectedQuestion) {
-      loadAnswers(selectedQuestion);
+      loadAnswers();
     }
-  }, [contract, selectedQuestion]);
+  }, [contract, selectedQuestion, loadAnswers]);
 
   const loadQuestions = async () => {
     try {
@@ -46,9 +60,9 @@ function App() {
     }
   };
 
-  const loadAnswers = async (questionId) => {
+  const loadAnswers = async () => {
     try {
-      const loadedAnswers = await contract.getAnswers(questionId);
+      const loadedAnswers = await contract.getAnswers(selectedQuestion);
       setAnswers(loadedAnswers);
     } catch (error) {
       console.error('Error loading answers:', error);
@@ -58,7 +72,6 @@ function App() {
   const handleConnect = async (provider) => {
     const signer = await provider.getSigner();
     const QAContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    setProvider(provider);
     setContract(QAContract);
   };
 
@@ -80,7 +93,7 @@ function App() {
     try {
       const tx = await contract.postAnswer(questionId, content);
       await tx.wait();
-      await loadAnswers(questionId);
+      await loadAnswers();
     } catch (error) {
       console.error('Error posting answer:', error);
     } finally {
@@ -102,7 +115,7 @@ function App() {
     try {
       const tx = await contract.voteAnswer(questionId, answerIndex, isUpvote);
       await tx.wait();
-      await loadAnswers(questionId);
+      await loadAnswers();
     } catch (error) {
       console.error('Error voting on answer:', error);
     }
